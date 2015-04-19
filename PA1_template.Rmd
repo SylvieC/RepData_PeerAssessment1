@@ -2,7 +2,9 @@
 title: "Reproducible Research- Project 1"
 author: "Sylvie Cottrell"
 date: "April 16, 2015"
-output: html_document
+output:
+  html_document:
+    keep_md: yes
 ---
 
 ## Loading and preprocessing the data
@@ -11,6 +13,7 @@ output: html_document
 library(plyr)
 library(dplyr)
 library(lubridate)
+library(lattice)
 ```
 1 - Load the data
 ```{r,echo=TRUE}
@@ -156,30 +159,22 @@ head(complete_df)
 
 2- Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
 
-First I create two datasets that are a subset of the main dataset, 
+First I make the value in day_type as factors, and create a data frame with average steps per interval
+
 ```{r echo=TRUE}
- weekends <- filter(complete_df, day_type == "weekend")
- weekdays <- filter(complete_df, day_type == "weekday")
-
-by_interval_weekdays <- aggregate(weekdays$steps, list(interval = weekdays$interval), mean)
-by_interval_weekdays<- mutate(by_interval_weekdays, steps_average = round(x))
-by_interval_weekdays <- select(by_interval_weekdays, interval, steps_average)
-
-by_interval_weekends <- aggregate(weekends$steps, list(interval = weekends$interval), mean)
-by_interval_weekends<- mutate(by_interval_weekends, steps_average = round(x))
-by_interval_weekends <- select(by_interval_weekends, interval, steps_average)
-
-head(by_interval_weekdays)
-head(by_interval_weekends)
+complete_df$day_type <- as.factor(complete_df$day_type)
+str(complete_df)
+by_interval <-  aggregate(complete_df$steps, list(interval = complete_df$interval, day_type = complete_df$day_typ), mean)
+by_interval<- mutate(by_interval, steps_average = round(x))
+by_interval <- select(by_interval, interval, steps_average, day_type)
+head(by_interval)
 ```
 
-Plot the data
+Create a lattice plot
 
 ```{r echo=TRUE}
-par(mfrow=c(2,2))
-plot(by_interval_weekends$interval, by_interval_weekends$steps_average, type="l", xlab= "Interval Number", ylab= "Average of Steps taken",ylim=c(0,200), col="blue" , lwd=2, main=" Weekends")
-plot(by_interval_weekdays$interval, by_interval_weekdays$steps_average, type="l", xlab= "Interval Number", ylab= "Average of Steps taken",ylim=c(0,200), col="blue" , lwd=2, main=" Weekdays")
+xyplot( steps_average ~ interval |day_type, data=by_interval,type="l",xlab="5-minute interval",ylab="Average number of steps taken",main="Average daily activity weekends vs weekdays",layout=c(1,2))
 ```
  
- We see a difference in the average of the steps in weekdays and weekends. 
+ We see a difference between the average of steps during weekdays and weekends. 
  The average of steps taken is generally higher on weekends, but with a higher peek during the week. 
