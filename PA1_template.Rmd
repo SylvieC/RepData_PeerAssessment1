@@ -1,25 +1,185 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research- Project 1"
+author: "Sylvie Cottrell"
+date: "April 16, 2015"
+output: html_document
 ---
-
 
 ## Loading and preprocessing the data
 
+```{r, echo=TRUE}
+library(plyr)
+library(dplyr)
+library(lubridate)
+```
+1 - Load the data
+```{r,echo=TRUE}
+data <- read.csv("activity.csv")
+data <- tbl_df(data)
+```
+2- Process/transform the data
+ 
+Convert the date values from characters to DateTime objects
+```{r ,echo=TRUE}
+data <- mutate(data, date = ymd(date))
+head(data)
+```
+
+## What is mean total number of steps taken per day
+1- Calculate the total number of steps taken per day
+Take a subset of the data, omitting the missing values
+
+```{r  remove_na, echo=TRUE}
+ df <- filter(data, !is.na(steps))
+```
+
+Create a table with the number of steps each day
+```{r , echo=TRUE}
+  by_day <- aggregate(df$steps, list(day = df$date), sum)
+  by_day
+```
+2- Make a histogram of the total number of steps taken each day
+```{r echo=TRUE}
+hist(by_day$x, main=" Histogram of total num of steps per day", xlab="Number of steps")
+```
 
 
-## What is mean total number of steps taken per day?
+3- Calculate the mean and median of the total number of steps taken per day
+Get the mean
+```{r, echo=TRUE}
+mean(by_day$x)
+```
+Get the median
+
+```{r echo=TRUE}
+median(by_day$x)
+```
 
 
+Result : The average of steps per day is **10,766 steps**, the median is **10,765 steps**.
 
 ## What is the average daily activity pattern?
+ 1-Make a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+ 
+ Create a data frame with the average number of steps per interval
+```{r echo=TRUE}
+by_interval <- aggregate(df$steps, list(interval = df$interval), mean)
+```
+ 
+ round the number of steps and create a data frame take the rounded values of steps
+```{r echo=TRUE}
+  by_interval <- by_interval %>% 
+                 mutate(steps_average = round(x)) %>%
+                   select( interval, steps_average)
+  head(by_interval)
+```
+ 
+ Create the plot
+```{r echo=TRUE}
+plot(by_interval$interval, by_interval$steps_average, type="l", xlab= "Interval Number", ylab= "Average of Steps taken", col="blue" , lwd=2, main="Times Series Plot - Interval Num vs Average of Steps")
+```
 
+ 3- Find the maximum value
+```{r echo=TRUE}
+max(by_interval$steps_average)
+```
 
+Find the corresponding interval number
+```{r echo=TRUE}
+result <- filter(by_interval, steps_average == 206)
+result
+```
 
-## Imputing missing values
+The interval number with the highest number of steps is **interval number 835** with **206 steps**
 
+##Imputing missing values
 
+  1- Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+  
+```{r echo=TRUE}
+summary(data)
+```
+ We see that there are **2,304** missing values
+ 
+ 2- Devise a strategy for filling in all of the missing values in the dataset.
+ 
+ I will replace the missing values by the average value for the interval number it corresponds to
+ 
+```{r echo=TRUE}
+ interval <- aggregate(steps ~ interval, df, mean)
+ interval <- interval %>% 
+               mutate(avg_steps = round(steps)) %>%
+                select(interval, avg_steps)
+head(interval)
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+Add the average of steps per interval to the original data frame
+```{r echo=TRUE}
+ new_df <- merge(data, interval, by = 'interval', all.y = F)
+ head(new_df)
+```
+
+Replace missing values by the average of the value in the interval
+
+```{r echo=TRUE}
+complete_df <- mutate(new_df, steps = ifelse(is.na(steps), avg_steps, steps))
+head(complete_df)
+```
+
+3- Histogram
+```{r echo=TRUE}
+ by_day2 <- aggregate(complete_df$steps, list(day = complete_df$date), sum)
+ hist(by_day2$x, main="Histogram 2 - with missing values replaced", xlab="Number of steps")
+```
+
+Find mean
+```{r echo=TRUE}
+mean(by_day2$x)
+```
+
+Find median
+
+```{r echo=TRUE}
+median(by_day2$x)
+```
+The mean is about the same as before with a value of **10,765.64 **, the median has gone down by 3, from 10,765 to 10,762. 
+We see that the mean and median have about the same values with or wihout the missing values
+
+## Are there differences in activity patterns between weekdays and weekends
+
+ 1- Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+```{r echo=TRUE}
+complete_df <- mutate(complete_df, day_type = ifelse(weekdays(date)== "Saturday" | weekdays(date) == "Sunday", "weekend", "weekday"))
+head(complete_df)
+```
+
+2- Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+First I create two datasets that are a subset of the main dataset, 
+```{r echo=TRUE}
+ weekends <- filter(complete_df, day_type == "weekend")
+ weekdays <- filter(complete_df, day_type == "weekday")
+
+by_interval_weekdays <- aggregate(weekdays$steps, list(interval = weekdays$interval), mean)
+by_interval_weekdays<- mutate(by_interval_weekdays, steps_average = round(x))
+by_interval_weekdays <- select(by_interval_weekdays, interval, steps_average)
+
+by_interval_weekends <- aggregate(weekends$steps, list(interval = weekends$interval), mean)
+by_interval_weekends<- mutate(by_interval_weekends, steps_average = round(x))
+by_interval_weekends <- select(by_interval_weekends, interval, steps_average)
+
+head(by_interval_weekdays)
+head(by_interval_weekends)
+```
+
+Plot the data
+
+```{r echo=TRUE}
+par(mfrow=c(2,2))
+plot(by_interval_weekends$interval, by_interval_weekends$steps_average, type="l", xlab= "Interval Number", ylab= "Average of Steps taken",ylim=c(0,200), col="blue" , lwd=2, main=" Weekends")
+plot(by_interval_weekdays$interval, by_interval_weekdays$steps_average, type="l", xlab= "Interval Number", ylab= "Average of Steps taken",ylim=c(0,200), col="blue" , lwd=2, main=" Weekdays")
+```
+ 
+ We see a difference in the average of the steps in weekdays and weekends. 
+ The average of steps taken is generally higher on weekends, but with a higher peek during the week. 
